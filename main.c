@@ -10,47 +10,65 @@
 
 #include "stm32f3xx.h"                  // Device header
 
-
-void delay(int a); // prototype for delay function
+int i = 0;
 
 int main(void)
 {
-	// Enable clock on GPIO port E
-	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
+
+	/**
+	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
+	*/
+	TIM3->PSC = 100;
+	TIM3->ARR = 7999;
+	TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
-	// GPIOE is a structure defined in stm32f303xc.h file
-	// Define settings for each output pin using GPIOE structure
+	/*
+	*	Set the GPIOE (LED) pin configurations:
+	*/
 	GPIOE->MODER |= 0x55550000; // Set mode of each pin in port E
 	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
 	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
-		
-	int index = 0;
 	
-	while (1)
-  {
-		// Reset the counter once it reaches the full value.
-		if(index > 255) {
-			index = 0;
-		}
-		
-		GPIOE->BSRRL = index << 8;
-		delay(1200000);
-		GPIOE->BSRRH = index << 8;
-		delay(1200000);
-		index++;
-	}
+
+	/*
+	*	Set the DAC configuration:
+	*/
+	RCC->APB1ENR |= RCC_APB1ENR_DAC1EN; // Connect the DAC to the system clock via the APB1 peripheral clock bus.
+	DAC1->CR |= DAC_CR_BOFF1; // Disable the 'buffer' function in the DAC control register.
+	DAC1->CR |= DAC_CR_EN1; // Enable the DAC peripheral.
+	
+	/*
+	*	Configure PA.4 to be an analogue output.
+	*/
+	GPIOA->MODER &= ~(0x300);
+	
+	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
+	NVIC_EnableIRQ(TIM3_IRQn); // Enable Timer ‘x’ interrupt request in NVIC
+			
+	while (1){}
 
 }
 
-// Delay function to occupy processor
-void delay (int a)
+void TIM3_IRQHandler()
 {
-    volatile int i,j;
-
-    for (i=0 ; i < a ; i++)
-    {
-        j++;
-    }
-
-    return;
+	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
+	{
+		
+		DAC->DHR12R1 = i;
+		
+		// Turn off all previous LEDS:
+		GPIOE->BSRRH = (DAC->DHR12R1 - 1) << 8;
+		
+		// Reset the counter once it reaches the full value.
+		if(i > 255) {
+			i = 0;
+		}
+	
+		GPIOE->BSRRL = DAC->DHR12R1 << 8;
+		i++;
+	}
+	
+	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
 }
