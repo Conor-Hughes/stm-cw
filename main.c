@@ -10,19 +10,13 @@
 
 #include "stm32f3xx.h"                  // Device header
 
-int i = 0;
+
+void delay(int a); // prototype for delay function
 
 int main(void)
 {
-	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
-
-	/**
-	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
-	*/
-	TIM3->PSC = 100;
-	TIM3->ARR = 7999;
-	TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
+	// Enable clock on GPIO port E
+	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
 	
 	// GPIOE is a structure defined in stm32f303xc.h file
 	// Define settings for each output pin using GPIOE structure
@@ -30,32 +24,26 @@ int main(void)
 	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
 	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
 	
-	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
-	NVIC_EnableIRQ(TIM3_IRQn); // Enable Timer ‘x’ interrupt request in NVIC
-			
+	// Main programme loop - make LED 4 (attached to pin PE.0) turn on and off	
 	while (1)
   {
-		
+		GPIOE->BSRRL = 0xFF00; // From pins 8 -> 15
+		delay(600000);
+		GPIOE->BSRRH = 0xFF00;
+		delay(600000);
 	}
 
 }
 
-void TIM3_IRQHandler()
+// Delay function to occupy processor
+void delay (int a)
 {
-	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
-	{
-		
-		// Turn off all previous LEDS:
-		GPIOE->BSRRH = (i - 1) << 8;
-		
-		// Reset the counter once it reaches the full value.
-		if(i > 255) {
-			i = 0;
-		}
-	
-		GPIOE->BSRRL = i << 8;
-		i++;
-	}
-	
-	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+    volatile int i,j;
+
+    for (i=0 ; i < a ; i++)
+    {
+        j++;
+    }
+
+    return;
 }
