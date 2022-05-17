@@ -13,6 +13,13 @@
 
 int main(void)
 {
+	/*
+	*	Set the GPIOE (LED) pin configurations:
+	*/
+	GPIOE->MODER |= 0x55550000; // Set mode of each pin in port E
+	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
+	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
+	
 	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
 	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // Direct clock pulses to Timer 1
 	GPIOE->AFR[1] |= 0x20; // Set PE.9 to receive input from TIM1.
