@@ -17,7 +17,6 @@ int main(void)
 	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // Direct clock pulses to Timer 1
 	GPIOE->AFR[0]|=0x00000200;
 
-
 	/**
 	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
 	*/
