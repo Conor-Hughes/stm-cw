@@ -13,43 +13,37 @@
 
 int main(void)
 {
-	/*
-	*	Set the GPIOE (LED) pin configurations:
-	*/
-	GPIOE->MODER |= 0x55550000; // Set mode of each pin in port E
+	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // Direct clock pulses to Timer 1
+	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
+
+	// Step 2. Configure required pin (PE.9) to be 'alternate function'.
+	GPIOE->MODER &= ~(0xC0000);
+	GPIOE->MODER |= 0x80000; // Set mode of each pin in port E
 	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
 	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
-	
-	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
-	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // Direct clock pulses to Timer 1
-	GPIOE->AFR[1] |= 0x20; // Set PE.9 to receive input from TIM1.
 
-	/**
-	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
-	*/
+	// Step 3: Set up alternate function for PE.9:
+	GPIOE->AFR[1] |= 0x20; // Set PE.9 to receive input from TIM1_CH1.
+
+	// Step 4: Initialise timer with PSC and ARR:
 	TIM1->PSC = 7999; // TODO: Maybe need to change this based on the CCHR value.
 	TIM1->ARR = 9;
 	
-	TIM1->CCMR1 |= 0x00000060; // Set channel 1 to be in standard PWM mode.
-	TIM1->CCR1 = 10; //Sets on time to 10 clock pulses
+	// Step 5: Set Timer 1 Channel 1 to be in PWM mode.
+	TIM1->CCMR1 |= 0x00000060;
 	
+	// Step 6: Set the CCR1 to an initial value ("on time" of PWM pulse).
+	TIM1->CCR1 = 10; // Sets on time to 10 clock pulses
+	
+	// Step 7: Enable the channel chosen to be the output to the GPIO pin.
 	TIM1->BDTR |= TIM_BDTR_MOE;
 	TIM1->CCER |= TIM_CCER_CC1E;
 	
+	// 8. Enable the timer.
 	TIM1->CR1 |= TIM_CR1_CEN; // Enables the timer.
-		
+	
+
 	while(1){
-	
 	}
 
-}
-
-void TIM3_IRQHandler()
-{
-	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
-	{
-		
-	}
-	
-	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
 }
