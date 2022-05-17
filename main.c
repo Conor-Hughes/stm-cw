@@ -17,12 +17,12 @@ int main(void)
 	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
 
 	// Step 2. Configure required pin (PE.9) to be 'alternate function'.
-	GPIOE->MODER &= ~(0xC0000);
-	GPIOE->MODER |= 0x80000; // Set mode of each pin in port E
+	GPIOE->MODER &= ~(0xFC0000);
+	GPIOE->MODER |= 0xA80000; // Set mode of each pin in port E
 	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
 	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
 
-	// Step 3: Set up alternate function for PE.9:
+	// Step 3: Set up alternate function for PE.9, PE.10 and PE.11:
 	GPIOE->AFR[1] |= 0x20; // Set PE.9 to receive input from TIM1_CH1.
 
 	// Step 4: Initialise timer with PSC and ARR:
