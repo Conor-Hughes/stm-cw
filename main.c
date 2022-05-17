@@ -15,6 +15,7 @@ int main(void)
 {
 	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // Direct clock pulses to Timer 1
 	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // 2.1: Enable SysConfigController to SysClk.
 
 	// Step 2. Configure required pin (PE.9) to be 'alternate function'.
 	GPIOE->MODER &= ~(0xFC0000);
@@ -33,7 +34,7 @@ int main(void)
 	TIM1->CCMR1 |= 0x00000060;
 	
 	// Step 6: Set the CCR1 to an initial value ("on time" of PWM pulse).
-	TIM1->CCR1 = 10; // Sets on time to 10 clock pulses
+	TIM1->CCR1 = 0; // Sets on time to 10 clock pulses
 	
 	// Step 7: Enable the channel chosen to be the output to the GPIO pin.
 	TIM1->BDTR |= TIM_BDTR_MOE;
@@ -42,8 +43,37 @@ int main(void)
 	// 8. Enable the timer.
 	TIM1->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
+	// 2.2: Remove mask to enable an interrupt to be generated from the EXTI_IMR register
+	EXTI->IMR |= EXTI_IMR_MR0;
+	
+	// 2.3: Set interrupt trigger to be rising edge:
+	EXTI->RTSR |= EXTI_RTSR_TR0;
+	
+	// 2.4: Configure multiplexing options to enable PA.0 to generate interrupt EXTIO.
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
+	
+	// 2.5 Configure the NVIC to trigger the ISR.
+	NVIC_EnableIRQ(EXTI0_IRQn);
+	
 
 	while(1){
 	}
 
 }
+
+int levels[] = {0, 25, 50, 75, 100};
+int i = 1;
+
+void EXTI0_IRQHandler()
+{
+	if (EXTI->PR & EXTI_PR_PR0) // check source
+	{
+		EXTI->PR |= EXTI_PR_PR0; // clear flag*
+		TIM1->CCR1 = (levels[i] / 10);
+		
+		i++;
+		if(i > 3){
+			i = 0;
+		}
+	}
+};
