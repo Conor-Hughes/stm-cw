@@ -196,22 +196,38 @@ void EXTI9_5_IRQHandler(){
 	
 	/*
 	* Channel B - PE9. Wired to PE6.
-	*	When this is rising, check to see if Channel B is high. If so, we're going clockwise.
-	*	When this is falling, check to see if Channel B is low. If so, we're going clockwise.
-	
+	*	When this is rising, check to see if Channel A is high. If so, we're going clockwise.
+	*	When this is falling, check to see if Channel A is low. If so, we're going clockwise.
+	*/
 	if (EXTI->PR & EXTI_PR_PR6) // check source
 	{
 		EXTI->PR |= EXTI_PR_PR6; // clear flag*
 		
+		// If this was a rising edge...
 		if(GPIOE->IDR & (1<<6)){
-			// If this was a rising edge, turn on PE11:
-			GPIOE->BSRRL = 0x800;
+			
+			// Check if Channel A is high. If it is, we can increment by 1. Else, decrement 1.
+			if(GPIOE->IDR & (1<<7)){
+				increment_counter();
+			}
+			else {
+				decrement_counter();
+			}
+			
 		}
+		// If this was a falling edge...
 		else {
-			// If this was a falling edge, turn off PE11:
-			GPIOE->BSRRH = 0x800;
+			
+			// Check if Channel A is high. If it is, we can increment by 1. Else, decrement 1.
+			if(GPIOE->IDR & (1<<7)){
+				decrement_counter();
+			}
+			else {
+					increment_counter();
+			}
+
 		}
-	}*/
+	}
 }
 
 int encoderCount = 0;
