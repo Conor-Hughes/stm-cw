@@ -17,6 +17,7 @@ const int signals[8][2] = {{0,1}, {0,0}, {1,0}, {1,1}, {0,1}, {0,0}, {1,0}, {1,1
 
 void setup_timer_3();
 void setup_port_e();
+void setup_button_interrupt();
 	
 int main(void)
 {
@@ -25,15 +26,7 @@ int main(void)
 	
 	setup_port_e();
 	
-	//RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // Enable the interrupt on the button.
-			
-	
-	/**
-		EXTI->IMR |= EXTI_IMR_MR0;
-		EXTI->RTSR|= EXTI_RTSR_TR0;
-		SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
-		NVIC_EnableIRQ(EXTI0_IRQn);
-	*/
+	setup_button_interrupt();
 	
 	while (1)
   {
@@ -65,7 +58,14 @@ void setup_port_e(){
 	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
 }
 
-int i = 0;
+void setup_button_interrupt(){
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // Enable the interrupt on the button.
+	
+	EXTI->IMR |= EXTI_IMR_MR0;
+	EXTI->RTSR|= EXTI_RTSR_TR0;
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
+	NVIC_EnableIRQ(EXTI0_IRQn);
+}
 
 /*
 *		Generates the square wave on both channels.
@@ -119,12 +119,8 @@ void EXTI0_IRQHandler(){
 	{
 		EXTI->PR |= EXTI_PR_PR0; // clear flag*
 		
-		if(indexer == 0){
-			indexer = 1;
-		}
-		else {
-			indexer = 0;
-		}
+		// Flip the direction of the encoder signal.
+		clockwise = !clockwise;
 	}
 }
 
