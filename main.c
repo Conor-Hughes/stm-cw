@@ -9,15 +9,11 @@
 	*/
 
 #include "stm32f3xx.h"                  // Device header
-int Count = 1 ;
-int Ratio[] = {1,5,9};
-int indexer = 0; 
-const int StartConfig[10][2] = {{1,0},{1,1},{0,1},{0,0},{1,0},{1,1},{0,1},{0,0},{1,0},{1,1}};
-const int EncoderSig[2][5][2] = {{{1,0},{1,1},{0,1},{0,0},{1,0}},{{1,1},{0,1},{0,0},{1,0},{1,1}}};
+typedef enum {false, true} bool;
 
-void signalfunc(){
-	
-}
+int indexer = 0;
+bool clockwise = true;
+const int signals[8][2] = {{0,1}, {0,0}, {1,0}, {1,1}, {0,1}, {0,0}, {1,0}, {1,1}};
 
 int main(void)
 {
@@ -34,7 +30,7 @@ int main(void)
 	GPIOE->AFR[1]|=0x00000022;
 	
 	TIM1->PSC = 39999;
-	TIM1->ARR = 99;
+	TIM1->ARR = 99; 
 	
 	TIM1->CCMR1 |= 0x1A0F0;
 	
@@ -78,14 +74,14 @@ int main(void)
 void EXTI0_IRQHandler(){
 	if (EXTI->PR & EXTI_PR_PR0) // check source
 	{
-	EXTI->PR |= EXTI_PR_PR0; // clear flag*
-	if (Count < 3){
-		Count ++ ;
-	}
-	if (Count > 2){
-		Count = 0;
-	}
-	TIM1->CCR1 = Ratio[Count]; 
+		EXTI->PR |= EXTI_PR_PR0; // clear flag*
+		
+		if(indexer == 0){
+			indexer = 1;
+		}
+		else {
+			indexer = 0;
+		}
 	}
 }
 
