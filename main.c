@@ -40,14 +40,16 @@ int main(void)
 	}
 }
 
-void setup_timer_3(){
+void setup_timer_3(){	
+	
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
+	
 	/**
 	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
 	*/
-	TIM3->PSC = 100;
-	TIM3->ARR = 7999;
+	TIM3->PSC = 1000;
+	TIM3->ARR = 79990;
 	
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
 	TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
 	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
@@ -64,21 +66,49 @@ void setup_port_e(){
 }
 
 int i = 0;
+
+/*
+*		Generates the square wave on both channels.
+*/
 void TIM3_IRQHandler()
 {
 	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
 	{
 		
-		// Turn off all previous LEDS:
-		GPIOE->BSRRH = (i - 1) << 8;
-		
-		// Reset the counter once it reaches the full value.
-		if(i > 255) {
-			i = 0;
+		if(clockwise){
+			indexer = indexer + 1;
+			
+			// If indexer has overflown, reset it back to 0.
+			if(indexer > 7){
+				indexer = 0;
+			}
 		}
-	
-		GPIOE->BSRRL = i << 8;
-		i++;
+		else {
+			indexer = indexer - 1;
+			
+			// If indexer has gone negative, reset it to the max value:
+			if(indexer < 0){
+				indexer = 7;
+			}
+		}
+		
+		// Get the next value of channel A and B:
+		int channelAValue = signals[indexer][0]; // Channel A = PE8
+		int channelBValue = signals[indexer][1]; // Channel B = PE9
+		
+		if(channelAValue == 1){
+			GPIOE->BSRRL |= 0x100;
+		}
+		else {
+			GPIOE->BSRRH |= 0x100;
+		}
+		
+		if(channelBValue == 1){
+			GPIOE->BSRRL |= 0x200;
+		}
+		else {
+			GPIOE->BSRRH |= 0x200;
+		}
 	}
 	
 	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
