@@ -15,61 +15,74 @@ int indexer = 0;
 bool clockwise = true;
 const int signals[8][2] = {{0,1}, {0,0}, {1,0}, {1,1}, {0,1}, {0,0}, {1,0}, {1,1}};
 
+void setup_timer_3();
+void setup_port_e();
+	
 int main(void)
 {
-	// Enable clock on GPIO port E
-	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
 	
-	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
-	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
+	setup_timer_3();
 	
-	GPIOE->MODER |= (0xA0000); 
-	GPIOE->OTYPER &= ~(0x00000100);
-	GPIOE->PUPDR &= ~(0x00000000); 
+	setup_port_e();
 	
-	GPIOE->AFR[1]|=0x00000022;
+	//RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; // Enable the interrupt on the button.
+			
 	
-	TIM1->PSC = 39999;
-	TIM1->ARR = 99; 
+	/**
+		EXTI->IMR |= EXTI_IMR_MR0;
+		EXTI->RTSR|= EXTI_RTSR_TR0;
+		SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
+		NVIC_EnableIRQ(EXTI0_IRQn);
+	*/
 	
-	TIM1->CCMR1 |= 0x1A0F0;
-	
-	
-	TIM1->CCR1 = 0;
-	TIM1->CCR2 = 25; 
-	
-	TIM1->BDTR |= TIM_BDTR_MOE;
-	TIM1->CCER |= TIM_CCER_CC1E;
-	//TIM1->CCER |= TIM_CCER_CC2E;
-	TIM1->CR1|=TIM_CR1_CEN;
-	
-
-	
-	EXTI->IMR |= EXTI_IMR_MR0;
-	EXTI->RTSR|= EXTI_RTSR_TR0;
-	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
-	NVIC_EnableIRQ(EXTI0_IRQn);
-	
-	
-	
-
-	
-
-	
-	// Main programme loop - make LED 4 (attached to pin PE.0) turn on and off	
 	while (1)
   {
-				// Reset the counter once it reaches the full value.
-		//GPIOE->BSRRL = 0xFF00; // From pins 8 -> 15
-		//delay(600000);
-		//GPIOE->BSRRH = 0xFF00;
-		//delay(600000);
 	}
-
 }
 
+void setup_timer_3(){
+	/**
+	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
+	*/
+	TIM3->PSC = 100;
+	TIM3->ARR = 7999;
+	
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
+	TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
+	
+	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
+	NVIC_EnableIRQ(TIM3_IRQn); // Setup the ISR for the timer.
+}
 
+void setup_port_e(){
+	RCC->AHBENR |= RCC_AHBENR_GPIOEEN; // Enable clock on GPIO port E
+	
+	GPIOA->MODER &= ~(0xFFFFF000); // Set PE 15 -> 6 as Inputs.
+	GPIOE->MODER |= (0x55550000); // Set Pe 15 -> 8 as GP Outputs. 
+	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
+	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
+}
 
+int i = 0;
+void TIM3_IRQHandler()
+{
+	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
+	{
+		
+		// Turn off all previous LEDS:
+		GPIOE->BSRRH = (i - 1) << 8;
+		
+		// Reset the counter once it reaches the full value.
+		if(i > 255) {
+			i = 0;
+		}
+	
+		GPIOE->BSRRL = i << 8;
+		i++;
+	}
+	
+	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+}
 
 void EXTI0_IRQHandler(){
 	if (EXTI->PR & EXTI_PR_PR0) // check source
