@@ -9,256 +9,165 @@
 	*/
 
 #include "stm32f3xx.h"                  // Device header
+#include <math.h>
+
 typedef enum {false, true} bool;
 
-int indexer = 0;
-bool clockwise = true;
-const int signals[8][2] = {{0,1}, {0,0}, {1,0}, {1,1}, {0,1}, {0,0}, {1,0}, {1,1}};
+void configure_dac();
+void configure_timer_3();
+void configure_leds();
+void configure_adc();
+void delay_ten_microseconds();
 
-void setup_timer_3();
-void setup_port_e();
-void setup_button_interrupt();
-void setup_pe_7_and_8_interrupt();
-void increment_counter();
-void decrement_counter();
-void set_counter();
 	
 int main(void)
 {
 	
-	setup_timer_3();
+	configure_timer_3();
+	configure_leds();
+	configure_dac();
+	configure_adc();
 	
-	setup_port_e();
-	
-	setup_button_interrupt();
-	
-	setup_pe_7_and_8_interrupt();
-	
-	while (1)
-  {
+	while (1){
+		// Set the ADSTART bit high to start the conversion:
+		ADC1->CR |= 0x4;
+		
+		if(ADC1->ISR & 0x4) {
+			// Turn off all previous LEDS:
+			GPIOE->BSRRH = 31 << 11;
+			
+			// We need 7 bits to represent the maximum number given by the triangle wave
+			
+			// Let's first check we are correctly receiving the values.
+			
+			// Divide our number by 50 to get the throttle position in degrees:
+			int degrees = (int)round(ADC1->DR / 50); 
+			GPIOE->BSRRL = 255 << 8;
+		}
 	}
+	
 }
 
-void setup_timer_3(){	
-	
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
-	
-	/**
-	*	Setting values for PSC and ARR so that the timer will send an interrupt signal every 1s.
-	*/
-	TIM3->PSC = 1000;
-	TIM3->ARR = 79990;
-	
-	TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
-	
-	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
-	NVIC_EnableIRQ(TIM3_IRQn); // Setup the ISR for the timer.
-}
-
-void setup_port_e(){
-	RCC->AHBENR |= RCC_AHBENR_GPIOEEN; // Enable clock on GPIO port E
-	
-	GPIOA->MODER &= ~(0xFFFFF000); // Set PE 15 -> 6 as Inputs.
-	GPIOE->MODER |= (0x55550000); // Set Pe 15 -> 8 as GP Outputs. 
-	GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
-	GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
-}
-
-void setup_button_interrupt(){
-	
-	// 2.1: Enable SysConfigController to SysClk.
-	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
-	
-	// 2.2: Remove mask to enable an interrupt to be generated from the EXTI0_IMR register
-	EXTI->IMR |= EXTI_IMR_MR0;
-	
-	// 2.3: Set interrupt trigger to be rising edge:
-	EXTI->RTSR |= EXTI_RTSR_TR0;
-	
-	// 2.4: Configure multiplexing options to enable PA.0 to generate interrupt EXTIO.
-	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
-	
-	// 2.5 Configure the NVIC to trigger the ISR.
-	NVIC_EnableIRQ(EXTI0_IRQn);
-}
-
-void setup_pe_7_and_8_interrupt()
+void configure_timer_3()
 {
-	// Remove masks to enable interrupts from EXTI6 & EXTI7:
-	EXTI->IMR |= EXTI_IMR_MR6;
-	EXTI->IMR |= EXTI_IMR_MR7;
+		RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
+		TIM3->PSC = 1000;
+		TIM3->ARR = 79990;
 	
-	// Set EXTI6 & EXTI7 ports to generate interrupt on rising and falling edges:
-	EXTI->RTSR |= EXTI_RTSR_TR6;
-	EXTI->RTSR |= EXTI_RTSR_TR7;
-	EXTI->FTSR |= EXTI_FTSR_TR6;
-	EXTI->FTSR |= EXTI_FTSR_TR7;
+		TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
-	// Configure multiplexing options to enable PE.6 and PE.7 to generate interrupt EXTIO.
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI6_PE;
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI7_PE;
-	
-	NVIC_EnableIRQ(EXTI9_5_IRQn);
+		TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
+		NVIC_EnableIRQ(TIM3_IRQn); // Enable Timer ‘x’ interrupt request in NVIC
 }
 
-/*
-*		Generates the square wave on both channels.
-*/
+void configure_dac()
+{
+	RCC->APB1ENR |= RCC_APB1ENR_DAC1EN; // Connect the DAC to the system clock via the APB1 peripheral clock bus.
+	DAC1->CR |= DAC_CR_BOFF1; // Disable the 'buffer' function in the DAC control register.
+	DAC1->CR |= DAC_CR_EN1; // Enable the DAC peripheral.
+	
+	/*
+	*	Configure PA.4 to be an analogue output.
+	*/
+	GPIOA->MODER &= ~(0x300);
+}
+
+void configure_leds()
+{
+		RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
+
+		GPIOE->MODER |= 0x55550000; // Set mode of each pin in port E
+		GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
+		GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
+}
+
+void configure_adc()
+{
+	delay_ten_microseconds();
+			
+	// 1. Reset and then enable the Voltage Regulator on the ADC1_CR register:
+	// ADC1->CR &= ~(0x30000000);
+	ADC1->CR |= 0x20000000;
+	ADC1->CR |= 0x10000000;
+	
+	delay_ten_microseconds();
+	
+	// 2.1 Calibrate the ADC using the ADC1_CR register:
+	ADC1->CR &= ~(0x40000000); // Set the calibration setting as single ended:
+	ADC1->CR &= ~(0x80000000); // Start the calibration by writing 1 to ADCAL:
+	ADC1->CR |= 0x80000000; // Start the calibration by writing 1 to ADCAL:
+	
+	// Poll to wait for the calibration to complete.
+	while(ADC1->CR & ADC_CR_ADCAL) {}
+			
+	// 3. Point the peripheral clock to ADC1:
+	RCC->CFGR2 |= RCC_CFGR2_ADCPRE12_DIV2;
+	RCC->AHBENR |= RCC_AHBENR_ADC12EN;
+	ADC1_2_COMMON->CCR |= 0x00010000;
+		
+	/*
+	* Note: PA4 (output of DAC) has been wired to PA0 (input of ADC1).
+	*	Now, set the PA0 to analogue mode.
+	*/
+	GPIOA->MODER |= 0x3;
+	
+	// 5. Configure the CFGR register to set: 
+	ADC1->CFGR &= ~(0x18); // 12-bit resolution.
+	//ADC1->CFGR |= 0x10;
+	ADC1->CFGR &= ~(0x20); // RH data alignment.
+	//ADC1->CFGR &= ~(0x2000); // Not-continious operation:
+	
+	// 6. Set the multiplexing options. (1 channel, listening to channel 1 (IN1)).
+	//ADC1->SQR1 &= ~(0x7CF) // Reset the channel length (L) and first address.
+	ADC1->SQR1 |= 0x40;
+	
+	// 7. Set the sample time of the ADC:
+	ADC1->SMPR1 &= ~(0x38);  // mb rm
+	ADC1->SMPR1 |= 0x18;
+		
+	// 8. Enable the ADC:
+	ADC1->CR |= 0x1;
+}
+
+void delay_ten_microseconds()
+{
+	int j = 0;
+	while(j < 101){
+		j++;
+	}
+	return;
+}
+
+
+// This has a maximum value of 4095 (8 bits).
+int dacOutput = 0;
+bool increasing = true;
+
 void TIM3_IRQHandler()
 {
 	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
 	{
 		
-		if(clockwise){
-			indexer = indexer + 1;
-			
-			// If indexer has overflown, reset it back to 0.
-			if(indexer > 7){
-				indexer = 0;
-			}
+		if(increasing){
+			dacOutput = dacOutput + 32;
 		}
 		else {
-			indexer = indexer - 1;
-			
-			// If indexer has gone negative, reset it to the max value:
-			if(indexer < 0){
-				indexer = 7;
-			}
+			dacOutput = dacOutput - 32;
 		}
 		
-		// Get the next value of channel A and B:
-		int channelAValue = signals[indexer][0]; // Channel A = PE8
-		int channelBValue = signals[indexer][1]; // Channel B = PE9
-		
-		if(channelAValue == 1){
-			GPIOE->BSRRL |= 0x100;
+		if(dacOutput > 4096){
+			dacOutput = 4095;
+			increasing = false;
 		}
-		else {
-			GPIOE->BSRRH |= 0x100;
+		else if(dacOutput < 0){
+			dacOutput = 0;
+			increasing = true;
 		}
 		
-		if(channelBValue == 1){
-			GPIOE->BSRRL |= 0x200;
-		}
-		else {
-			GPIOE->BSRRH |= 0x200;
-		}
+		DAC1->DHR12R1 = dacOutput;		
 	}
 	
 	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
 }
-
-void EXTI0_IRQHandler(){
-	if (EXTI->PR & EXTI_PR_PR0) // check source
-	{
-		EXTI->PR |= EXTI_PR_PR0; // clear flag*
-		
-		// Flip the direction of the encoder signal.
-		clockwise = !clockwise;
-	}
-}
-	
-void EXTI9_5_IRQHandler(){
-		
-	/*
-	* Channel A - PE8. Wired to PE7.
-	*	When this is rising, check to see if Channel B is low. If so, we're going clockwise.
-	*	When this is falling, check to see if Channel B is high. If so, we're going clockwise.
-	*/
-	if (EXTI->PR & EXTI_PR_PR7) // check source
-	{
-		EXTI->PR |= EXTI_PR_PR7; // clear flag
-		
-		// If this was a rising edge:
-		if(GPIOE->IDR & (1<<7)){
-						
-			// Check if Channel B is low. If it is, we can increment by 1. Else, decrement 1.
-			if(GPIOE->IDR & (1<<6)){
-				decrement_counter();
-			}
-			else {
-				increment_counter();
-			}
-		}
-		// Else, this is a falling edge:
-		else {
-			
-			// Check if Channel B is high. If it is, we can increment by 1. Else, decrement 1.
-			if(GPIOE->IDR & (1<<6)){
-				increment_counter();
-			}
-			else {
-				decrement_counter();
-			}
-			
-		}
-	}
-	
-	/*
-	* Channel B - PE9. Wired to PE6.
-	*	When this is rising, check to see if Channel A is high. If so, we're going clockwise.
-	*	When this is falling, check to see if Channel A is low. If so, we're going clockwise.
-	*/
-	if (EXTI->PR & EXTI_PR_PR6) // check source
-	{
-		EXTI->PR |= EXTI_PR_PR6; // clear flag*
-		
-		// If this was a rising edge...
-		if(GPIOE->IDR & (1<<6)){
-			
-			// Check if Channel A is high. If it is, we can increment by 1. Else, decrement 1.
-			if(GPIOE->IDR & (1<<7)){
-				increment_counter();
-			}
-			else {
-				decrement_counter();
-			}
-			
-		}
-		// If this was a falling edge...
-		else {
-			
-			// Check if Channel A is high. If it is, we can increment by 1. Else, decrement 1.
-			if(GPIOE->IDR & (1<<7)){
-				decrement_counter();
-			}
-			else {
-					increment_counter();
-			}
-
-		}
-	}
-}
-
-int encoderCount = 0;
-
-void increment_counter(){
-	encoderCount++;
-	
-	if(encoderCount > 15){
-		encoderCount = 15;
-	}
-	
-	set_counter();
-}
-
-void decrement_counter(){
-	encoderCount--;
-	
-	if(encoderCount < 0){
-		encoderCount = 0;
-	}
-	
-	set_counter();
-}
-
-void set_counter(){
-	// Reset all LEDS from PE11 -> PE14.
-	GPIOE->BSRRH |= 0x7800;
-	
-	GPIOE->BSRRL |= encoderCount << 11;
-}
-
-
 
 

@@ -661,10 +661,11 @@ ARM Macro Assembler    Page 11
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp --apcs=int
 erwork --depend=.\objects\startup_stm32f303xc.d -o.\objects\startup_stm32f303xc
-.o -I.\RTE\_Target_1 -IC:\KEIL_V5\ARM\Keil\STM32F3xx_DFP\1.4.0\Device\Include -
-IC:\KEIL_V5\ARM\CMSIS\Include --predefine="__UVISION_VERSION SETA 528" --predef
-ine="STM32F303xC SETA 1" --list=.\listings\startup_stm32f303xc.lst startup_stm3
-2f303xc.s
+.o -I.\RTE\_Target_1 -IC:\KEIL_V5\ARM\Keil\STM32F3xx_DFP\2.2.2\Drivers\CMSIS\De
+vice\ST\STM32F3xx\Include -IC:\KEIL_V5\ARM\CMSIS\Include -IC:\KEIL_V5\ARM\Keil\
+STM32F3xx_DFP\2.2.2\Device\Include --predefine="__UVISION_VERSION SETA 528" --p
+redefine="STM32F303xC SETA 1" --list=.\listings\startup_stm32f303xc.lst startup
+_stm32f303xc.s
 
 
 
