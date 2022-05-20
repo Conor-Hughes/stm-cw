@@ -232,26 +232,6 @@ void EXTI9_5_IRQHandler(){
 
 int encoderCount = 0;
 
-void adjust__counter(bool add){
-	
-	if(add){
-		encoderCount++;
-	}
-	else {
-		encoderCount--;
-	}
-	
-	
-	if(encoderCount > 15){
-		encoderCount = 0;
-	}
-	
-	// Reset all LEDS from PE11 -> PE14.
-	GPIOE->BSRRH &= ~(0x7800);
-	
-	GPIOE->BSRRL |= encoderCount << 11;
-}
-
 void increment_counter(){
 	encoderCount++;
 	
