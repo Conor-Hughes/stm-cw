@@ -13,11 +13,19 @@
 
 typedef enum {false, true} bool;
 
+/*
+* The output integer tells the program whether we're currently monitoring a combined
+*	output (0), the potentiometer (1) or the encoder(2).
+*/
+int output = 0;
+
 void configure_dac();
 void configure_timer_3();
 void configure_leds();
 void configure_adc();
 void delay_ten_microseconds();
+void convert_potentiometer_signal();
+void set_mode(int bitShift);
 
 	
 int main(void)
@@ -29,30 +37,70 @@ int main(void)
 	configure_adc();
 	
 	while (1){
+
+		switch (output)
+		{
+			
+			// This means we want the combined output:
+			case 0:
+				set_mode(14);
+				break;
+			
+			// This means we want the potentiometer output:
+			case 1:
+				set_mode(13);
+				break;
+			
+			// This means we want the encoder output:
+			case 2:
+				set_mode(12);
+				break;
+		}
+		
+	}
+	
+}
+
+/**
+*	Sets the appropriate LED on for the output mode that we are on.
+*/
+void set_mode(int bitShift)
+{
+	int outputLeds[3] = {12, 13, 14};
+	
+	for(int i = 0;i<3;i++){
+		
+		// Turn off the other outputMode LEDs:
+		if(outputLeds[i] != bitShift){
+			GPIOE->BSRRH = 1 << outputLeds[i];
+		}
+		// Turn on the LED of the output we are currently controlling:
+		else {
+			GPIOE->BSRRL = 1 << outputLeds[i];
+		}
+	}
+}
+
+void convert_potentiometer_signal()
+{
 		// Set the ADSTART bit high to start the conversion:
 		ADC1->CR |= 0x4;
 		
 		if(ADC1->ISR & 0x4) {
 			// Turn off all previous LEDS:
-			GPIOE->BSRRH = 31 << 11;
+			GPIOE->BSRRH = (DAC->DHR12R1 - 1) << 8;
 			
-			// We need 7 bits to represent the maximum number given by the triangle wave
-			
-			// Let's first check we are correctly receiving the values.
-			
-			// Divide our number by 50 to get the throttle position in degrees:
-			int degrees = (int)round(ADC1->DR / 50); 
-			GPIOE->BSRRL = 255 << 8;
+			GPIOE->BSRRL = ADC1->DR << 11;
 		}
-	}
-	
 }
 
 void configure_timer_3()
 {
 		RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
-		TIM3->PSC = 1000;
-		TIM3->ARR = 79990;
+		//TIM3->PSC = 1000;
+		//TIM3->ARR = 799900;
+		TIM3->PSC = 100;
+		TIM3->ARR = 7999;
 	
 		TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
@@ -105,16 +153,11 @@ void configure_adc()
 	RCC->AHBENR |= RCC_AHBENR_ADC12EN;
 	ADC1_2_COMMON->CCR |= 0x00010000;
 		
-	/*
-	* Note: PA4 (output of DAC) has been wired to PA0 (input of ADC1).
-	*	Now, set the PA0 to analogue mode.
-	*/
-	GPIOA->MODER |= 0x3;
 	
 	// 5. Configure the CFGR register to set: 
 	ADC1->CFGR &= ~(0x18); // 12-bit resolution.
-	//ADC1->CFGR |= 0x10;
-	ADC1->CFGR &= ~(0x20); // RH data alignment.
+	ADC1->CFGR |= 0x10; // Set to 8-bit resolution.
+	//ADC1->CFGR &= ~(0x20); // RH data alignment.
 	//ADC1->CFGR &= ~(0x2000); // Not-continious operation:
 	
 	// 6. Set the multiplexing options. (1 channel, listening to channel 1 (IN1)).
@@ -139,6 +182,7 @@ void delay_ten_microseconds()
 }
 
 
+/*
 // This has a maximum value of 4095 (8 bits).
 int dacOutput = 0;
 bool increasing = true;
@@ -149,10 +193,10 @@ void TIM3_IRQHandler()
 	{
 		
 		if(increasing){
-			dacOutput = dacOutput + 32;
+			dacOutput = dacOutput + 1;
 		}
 		else {
-			dacOutput = dacOutput - 32;
+			dacOutput = dacOutput - 1;
 		}
 		
 		if(dacOutput > 4096){
@@ -163,8 +207,27 @@ void TIM3_IRQHandler()
 			dacOutput = 0;
 			increasing = true;
 		}
-		
+				
 		DAC1->DHR12R1 = dacOutput;		
+	}
+	
+	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+}*/
+
+int i = 0;
+void TIM3_IRQHandler()
+{
+	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
+	{
+		
+		DAC->DHR12R1 = i;
+		
+		// Reset the counter once it reaches the full value.
+		if(i > 31) {
+			i = 0;
+		}
+		
+		i++;
 	}
 	
 	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
