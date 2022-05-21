@@ -13,6 +13,12 @@
 
 typedef enum {false, true} bool;
 
+/**
+*	Wiring Notes:
+*	1. PA0 -> PA4 (DAC -> ADC)
+*	2. PE7 -> PE6 (Output of encoder signal -> interrupt pin).
+*/
+
 /*
 * The output integer tells the program whether we're currently monitoring a combined
 *	output (0), the potentiometer (1) or the encoder(2).
@@ -25,12 +31,18 @@ void configure_timer_2();
 void configure_leds();
 void configure_adc();
 void delay_ten_microseconds();
-void convert_potentiometer_signal();
 void set_mode(int bitShift);
 void update_dac_output();
 void setup_button_interrupt();
 void setup_pe6_interrupt();
 void clear_counter();
+void convert_potentiometer_signal();
+void show_potentiometer_measurement();
+void show_combined_measurement();
+
+// Initialise these with 0, so we know that the slot is free.
+int last_5_potentiometer_readings[5] = {0, 0, 0, 0, 0};
+float encoderPositionCount = 0;
 
 	
 int main(void)
@@ -52,16 +64,20 @@ int main(void)
 			// This means we want the combined output:
 			case 0:
 				set_mode(8);
+				show_combined_measurement();
 				break;
 			
 			// This means we want the potentiometer output:
 			case 1:
 				set_mode(9);
+				show_potentiometer_measurement();
 				break;
 			
 			// This means we want the encoder output:
 			case 2:
 				set_mode(10);
+				// The encoder measurement is constantly being updated by interrupts, and is
+				// shown on the board's LEDs when output = 2.
 				break;
 		}
 		
@@ -94,17 +110,73 @@ void clear_counter()
 	GPIOE->BSRRH = 31 << 11; // Reset the existing counter.
 }
 
+/**
+*	Handles appending new potentiometer results onto the end of an array.
+*	We shift all items in the array to the left, and append this new value onto the end.
+*	The oldest item in the array (the first) is overwritten.
+*/
+void append_to_array(int newItem)
+{
+	
+	for(int i = 1;i<5;i++){
+		last_5_potentiometer_readings[i - 1] = last_5_potentiometer_readings[i];
+	}
+	
+	last_5_potentiometer_readings[4] = newItem;
+
+}
+
 void convert_potentiometer_signal()
 {
 		// Set the ADSTART bit high to start the conversion:
 		ADC1->CR |= 0x4;
 		
-		if(ADC1->ISR & 0x4) {
-			// Turn off all previous LEDS:
-			GPIOE->BSRRH = (DAC->DHR12R1 - 1) << 8;
+		if(ADC1->ISR & 0x4 && output == 1) {
 			
-			GPIOE->BSRRL = ADC1->DR << 11;
+			// Turn off all previous LEDS:
+			GPIOE->BSRRH = 31 << 11;
+			
+			float percentageValue = ADC1->DR / 51.2;
+			
+			// Now, we can convert this value to an integer and divide by 4
+			// to prevent overflows.
+			
+			int value = (int)round((percentageValue / 4));
+			
+			GPIOE->BSRRL = value << 11;
+			
+			append_to_array(value);
 		}
+}
+
+void show_potentiometer_measurement()
+{
+	while(output == 1){
+		convert_potentiometer_signal();
+	}
+}
+
+void show_combined_measurement(){
+	
+	while(output == 0){
+		
+		// Get the average of the last 5 potentiometer readings:
+		int total = 0;
+		
+		for(int i = 0;i < 5;i++){
+			total += last_5_potentiometer_readings[i];
+		}
+		
+		// Divide the total value of the last 5 readings by 5 to get an average.
+		int average = (int)round(total / 5);
+		
+		int value = average + (int)round(encoderPositionCount);
+		
+		// This value has already been divided by 4, so we can show it on
+		// the output.
+		GPIOE->BSRRL = value << 11;
+	}
+	
 }
 
 void configure_timer_3()
@@ -112,12 +184,12 @@ void configure_timer_3()
 		RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
 	
 		// TODO: Production values for 250 triggers per second.
-		//TIM3->PSC = 320;
-		//TIM3->ARR = 99;
+		TIM3->PSC = 320;
+		TIM3->ARR = 99;
 	
 		// Testing values approx 1/s
-		TIM3->PSC = 100;
-		TIM3->ARR = 7999;
+		//TIM3->PSC = 80000;
+		//TIM3->ARR = 99;
 	
 		TIM3->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
@@ -345,7 +417,6 @@ void setup_pe6_interrupt()
 *	We receive 113 encoder counts for the 80 degrees of movement for the throttle.
 * This means we want to add 0.70796460177 on each encoder signal.
 */
-float encoderPositionCount = 0;
 int incrementingEncoder = true;
 
 void EXTI9_5_IRQHandler(){
