@@ -17,7 +17,7 @@ typedef enum {false, true} bool;
 * The output integer tells the program whether we're currently monitoring a combined
 *	output (0), the potentiometer (1) or the encoder(2).
 */
-int output = 0;
+volatile uint8_t output = 0;
 
 void configure_dac();
 void configure_timer_3();
@@ -28,6 +28,7 @@ void delay_ten_microseconds();
 void convert_potentiometer_signal();
 void set_mode(int bitShift);
 void update_dac_output();
+void setup_button_interrupt();
 
 	
 int main(void)
@@ -38,6 +39,7 @@ int main(void)
 	configure_leds();
 	configure_dac();
 	configure_adc();
+	setup_button_interrupt();
 	
 	while (1){
 
@@ -246,3 +248,40 @@ void update_dac_output()
 		DAC1->DHR12R1 = dacOutput;
 }
 
+/**
+* Sets up the button interrupt for the board to cycle between the different outputs.
+*/
+void setup_button_interrupt(){
+	
+	// 2.1: Enable SysConfigController to SysClk.
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+	
+	// 2.2: Remove mask to enable an interrupt to be generated from the EXTI0_IMR register
+	EXTI->IMR |= EXTI_IMR_MR0;
+	
+	// 2.3: Set interrupt trigger to be rising edge:
+	EXTI->RTSR |= EXTI_RTSR_TR0;
+	
+	// 2.4: Configure multiplexing options to enable PA.0 to generate interrupt EXTIO.
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
+	
+	// 2.5 Configure the NVIC to trigger the ISR.
+	NVIC_EnableIRQ(EXTI0_IRQn);
+}
+
+/**
+*	Is called whenever the onboard button is clicked. Cycles between the different output
+*	types.
+*/
+void EXTI0_IRQHandler(){
+	if (EXTI->PR & EXTI_PR_PR0) // check source
+	{
+		EXTI->PR |= EXTI_PR_PR0; // clear flag
+		
+		output = output + 1;
+		
+		if(output == 3){
+			output = 0;
+		}
+	}
+}

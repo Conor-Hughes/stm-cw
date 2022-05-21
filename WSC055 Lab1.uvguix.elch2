@@ -3634,11 +3634,11 @@
       </Doc>
       <Doc>
         <Name>.\main.c</Name>
-        <ColumnNumber>19</ColumnNumber>
-        <TopLine>91</TopLine>
-        <CurrentLine>118</CurrentLine>
+        <ColumnNumber>17</ColumnNumber>
+        <TopLine>178</TopLine>
+        <CurrentLine>284</CurrentLine>
         <Folding>1</Folding>
-        <ContractedFolders></ContractedFolders>
+        <ContractedFolders>149,192,202,213</ContractedFolders>
         <PaneID>0</PaneID>
       </Doc>
       <Doc>
