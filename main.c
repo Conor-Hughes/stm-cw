@@ -141,7 +141,10 @@ void configure_leds()
 {
 		RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
 
-		GPIOE->MODER |= 0x55550000; // Set mode of each pin in port E
+		GPIOE->MODER |= 0x55554000; // Set mode of each pin in port E
+		
+		
+	
 		GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
 		GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
 }
@@ -210,11 +213,23 @@ void TIM3_IRQHandler()
 	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
 }
 
+// Saves whether the encoder signal is currently high so it can be inverted.
+bool encoderHigh = false;
+
+// We're using PE.7 as the output for this encoder signal. (This has already
+// been set as an output in the `configure_leds` function.
 void TIM2_IRQHandler()
 {
 	if ((TIM2->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
 	{
+		if(encoderHigh){
+			GPIOE->BSRRH = 1 << 7; // Set encoder signal low.
+		}
+		else {
+			GPIOE->BSRRL = 1 << 7; // Set encoder signal high.
+		}
 		
+		encoderHigh = !encoderHigh; // Flip the position of the encoder signal.
 	}
 	
 	TIM2->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
