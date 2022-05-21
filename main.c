@@ -29,6 +29,7 @@ void convert_potentiometer_signal();
 void set_mode(int bitShift);
 void update_dac_output();
 void setup_button_interrupt();
+void setup_pe6_interrupt();
 
 	
 int main(void)
@@ -299,4 +300,19 @@ void EXTI0_IRQHandler(){
 			output = 0;
 		}
 	}
+}
+
+void setup_pe_6_interrupt()
+{
+	// Remove masks to enable interrupts from EXTI6:
+	EXTI->IMR |= EXTI_IMR_MR6;
+	
+	// Set EXTI6 & EXTI7 ports to generate interrupt on rising and falling edges:
+	EXTI->RTSR |= EXTI_RTSR_TR6;
+	EXTI->FTSR |= EXTI_FTSR_TR6;
+	
+	// Configure multiplexing options to enable PE.6 and PE.7 to generate interrupt EXTIO.
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI6_PE;
+	
+	NVIC_EnableIRQ(EXTI9_5_IRQn);
 }
