@@ -21,17 +21,20 @@ int output = 0;
 
 void configure_dac();
 void configure_timer_3();
+void configure_timer_2();
 void configure_leds();
 void configure_adc();
 void delay_ten_microseconds();
 void convert_potentiometer_signal();
 void set_mode(int bitShift);
+void update_dac_output();
 
 	
 int main(void)
 {
 	
-	configure_timer_3();
+	configure_timer_3(); // The timer used for incrementing the DAC output.
+	configure_timer_2(); // The timer used for sending out encoder signals.
 	configure_leds();
 	configure_dac();
 	configure_adc();
@@ -108,6 +111,18 @@ void configure_timer_3()
 		NVIC_EnableIRQ(TIM3_IRQn); // Enable Timer ‘x’ interrupt request in NVIC
 }
 
+void configure_timer_2()
+{
+		RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Direct clock pulses to Timer 1
+		TIM2->PSC = 7999;
+		TIM2->ARR = 900;
+	
+		TIM2->CR1 |= TIM_CR1_CEN; // Enables the timer.
+	
+		TIM2->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
+		NVIC_EnableIRQ(TIM2_IRQn);
+}
+
 void configure_dac()
 {
 	RCC->APB1ENR |= RCC_APB1ENR_DAC1EN; // Connect the DAC to the system clock via the APB1 peripheral clock bus.
@@ -182,16 +197,36 @@ void delay_ten_microseconds()
 }
 
 
-/*
-// This has a maximum value of 4095 (8 bits).
-int dacOutput = 0;
-bool increasing = true;
-
 void TIM3_IRQHandler()
 {
 	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
 	{
+			update_dac_output();
 		
+	}
+	
+	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+}
+
+void TIM2_IRQHandler()
+{
+	if ((TIM2->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
+	{
+		
+	}
+	
+	TIM2->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+}
+
+// This has a maximum value of 4095 (8 bits).
+int dacOutput = 0;
+bool increasing = true;
+
+/**
+	Update the value of the DAC output to create a triangle wave with a resolution of 256.
+*/
+void update_dac_output()
+{
 		if(increasing){
 			dacOutput = dacOutput + 1;
 		}
@@ -208,29 +243,6 @@ void TIM3_IRQHandler()
 			increasing = true;
 		}
 				
-		DAC1->DHR12R1 = dacOutput;		
-	}
-	
-	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
-}*/
-
-int i = 0;
-void TIM3_IRQHandler()
-{
-	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
-	{
-		
-		DAC->DHR12R1 = i;
-		
-		// Reset the counter once it reaches the full value.
-		if(i > 31) {
-			i = 0;
-		}
-		
-		i++;
-	}
-	
-	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+		DAC1->DHR12R1 = dacOutput;
 }
-
 

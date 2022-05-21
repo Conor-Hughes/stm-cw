@@ -34,18 +34,24 @@ main.c(22): warning:  #1295-D: Deprecated declaration configure_dac - give arg t
   void configure_dac();
 main.c(23): warning:  #1295-D: Deprecated declaration configure_timer_3 - give arg types
   void configure_timer_3();
-main.c(24): warning:  #1295-D: Deprecated declaration configure_leds - give arg types
+main.c(24): warning:  #1295-D: Deprecated declaration configure_timer_2 - give arg types
+  void configure_timer_2();
+main.c(25): warning:  #1295-D: Deprecated declaration configure_leds - give arg types
   void configure_leds();
-main.c(25): warning:  #1295-D: Deprecated declaration configure_adc - give arg types
+main.c(26): warning:  #1295-D: Deprecated declaration configure_adc - give arg types
   void configure_adc();
-main.c(26): warning:  #1295-D: Deprecated declaration delay_ten_microseconds - give arg types
+main.c(27): warning:  #1295-D: Deprecated declaration delay_ten_microseconds - give arg types
   void delay_ten_microseconds();
-main.c(27): warning:  #1295-D: Deprecated declaration convert_potentiometer_signal - give arg types
+main.c(28): warning:  #1295-D: Deprecated declaration convert_potentiometer_signal - give arg types
   void convert_potentiometer_signal();
-main.c: 6 warnings, 0 errors
+main.c(30): warning:  #1295-D: Deprecated declaration update_dac_output - give arg types
+  void update_dac_output();
+main.c(224): warning:  #188-D: enumerated type mixed with another type
+  		on = !on;
+main.c: 9 warnings, 0 errors
 linking...
-Program Size: Code=1108 RO-data=436 RW-data=8 ZI-data=1632  
-".\Objects\WSC055 Lab1.axf" - 0 Error(s), 6 Warning(s).
+Program Size: Code=1332 RO-data=436 RW-data=16 ZI-data=1632  
+".\Objects\WSC055 Lab1.axf" - 0 Error(s), 9 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -59,7 +65,7 @@ Package Vendor: Keil
   C:\KEIL_V5\ARM\Keil\STM32F3xx_DFP\2.2.2\Drivers\CMSIS\Device\ST\STM32F3xx\Include
 
 <h2>Collection of Component Files used:</h2>
-Build Time Elapsed:  00:00:02
+Build Time Elapsed:  00:00:01
 </pre>
 </body>
 </html>
