@@ -48,10 +48,20 @@ main.c(30): warning:  #1295-D: Deprecated declaration update_dac_output - give a
   void update_dac_output();
 main.c(31): warning:  #1295-D: Deprecated declaration setup_button_interrupt - give arg types
   void setup_button_interrupt();
-main.c: 9 warnings, 0 errors
+main.c(32): warning:  #1295-D: Deprecated declaration setup_pe6_interrupt - give arg types
+  void setup_pe6_interrupt();
+main.c(33): warning:  #1295-D: Deprecated declaration clear_counter - give arg types
+  void clear_counter();
+main.c(251): warning:  #188-D: enumerated type mixed with another type
+  		encoderHigh = !encoderHigh; // Flip the position of the encoder signal.
+main.c(357): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+  			encoderPositionCount += 0.70796460177;
+main.c(360): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+  			encoderPositionCount -= 0.70796460177;
+main.c: 14 warnings, 0 errors
 linking...
-Program Size: Code=1400 RO-data=436 RW-data=12 ZI-data=1636  
-".\Objects\WSC055 Lab1.axf" - 0 Error(s), 9 Warning(s).
+Program Size: Code=3888 RO-data=436 RW-data=20 ZI-data=1636  
+".\Objects\WSC055 Lab1.axf" - 0 Error(s), 14 Warning(s).
 
 <h2>Software Packages used:</h2>
 

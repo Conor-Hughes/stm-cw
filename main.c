@@ -30,6 +30,7 @@ void set_mode(int bitShift);
 void update_dac_output();
 void setup_button_interrupt();
 void setup_pe6_interrupt();
+void clear_counter();
 
 	
 int main(void)
@@ -41,6 +42,7 @@ int main(void)
 	configure_dac();
 	configure_adc();
 	setup_button_interrupt();
+	setup_pe6_interrupt();
 	
 	while (1){
 
@@ -49,17 +51,17 @@ int main(void)
 			
 			// This means we want the combined output:
 			case 0:
-				set_mode(14);
+				set_mode(8);
 				break;
 			
 			// This means we want the potentiometer output:
 			case 1:
-				set_mode(13);
+				set_mode(9);
 				break;
 			
 			// This means we want the encoder output:
 			case 2:
-				set_mode(12);
+				set_mode(10);
 				break;
 		}
 		
@@ -71,8 +73,8 @@ int main(void)
 *	Sets the appropriate LED on for the output mode that we are on.
 */
 void set_mode(int bitShift)
-{
-	int outputLeds[3] = {12, 13, 14};
+{	
+	int outputLeds[3] = {8, 9, 10};
 	
 	for(int i = 0;i<3;i++){
 		
@@ -85,6 +87,11 @@ void set_mode(int bitShift)
 			GPIOE->BSRRL = 1 << outputLeds[i];
 		}
 	}
+}
+
+void clear_counter()
+{
+	GPIOE->BSRRH = 31 << 11; // Reset the existing counter.
 }
 
 void convert_potentiometer_signal()
@@ -103,8 +110,12 @@ void convert_potentiometer_signal()
 void configure_timer_3()
 {
 		RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // Direct clock pulses to timer 3
-		//TIM3->PSC = 1000;
-		//TIM3->ARR = 799900;
+	
+		// TODO: Production values for 250 triggers per second.
+		//TIM3->PSC = 320;
+		//TIM3->ARR = 99;
+	
+		// Testing values approx 1/s
 		TIM3->PSC = 100;
 		TIM3->ARR = 7999;
 	
@@ -117,8 +128,15 @@ void configure_timer_3()
 void configure_timer_2()
 {
 		RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // Direct clock pulses to Timer 1
+	
+		// These values are for approx 1/s
 		TIM2->PSC = 7999;
 		TIM2->ARR = 900;
+	
+		// TODO: Set to these values for production (226 / s)
+		//TIM2->PSC = 353;
+		//TIM2->ARR = 99;
+		
 	
 		TIM2->CR1 |= TIM_CR1_CEN; // Enables the timer.
 	
@@ -299,10 +317,12 @@ void EXTI0_IRQHandler(){
 		if(output == 3){
 			output = 0;
 		}
+		
+		clear_counter();
 	}
 }
 
-void setup_pe_6_interrupt()
+void setup_pe6_interrupt()
 {
 	// Remove masks to enable interrupts from EXTI6:
 	EXTI->IMR |= EXTI_IMR_MR6;
@@ -315,4 +335,50 @@ void setup_pe_6_interrupt()
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI6_PE;
 	
 	NVIC_EnableIRQ(EXTI9_5_IRQn);
+}
+
+/**
+*	Channel PE7 (the output of the square-wave encoder signal) is outputting to PE6.
+*	Here, we listen for rising and falling edges, and set an encoder counter to measure
+*	the position of the throttle.
+*
+*	We receive 113 encoder counts for the 80 degrees of movement for the throttle.
+* This means we want to add 0.70796460177 on each encoder signal.
+*/
+float encoderPositionCount = 0;
+int incrementingEncoder = true;
+
+void EXTI9_5_IRQHandler(){
+	if (EXTI->PR & EXTI_PR_PR6) // check source
+	{
+		EXTI->PR |= EXTI_PR_PR6; // clear flag*
+				
+		if(incrementingEncoder){
+			encoderPositionCount += 0.70796460177;
+		}
+		else {
+			encoderPositionCount -= 0.70796460177;
+		}
+		
+		int value = (int)round(encoderPositionCount);
+				
+		// Only show this if we're currently in output mode = 2.
+		if(output == 2){
+			GPIOE->BSRRH = 31 << 11; // Reset the existing counter.
+			
+			// Divide the position measurement to prevent overflows, at the expense of accuracy.
+			GPIOE->BSRRL = (value / 4) << 11;
+		}
+		
+		// If the encoder is overflowing the max value of 80, reset it to 80 and start decrementing it.
+		if(value > 80){
+			encoderPositionCount = 80;
+			incrementingEncoder = false;
+		}
+		else if(value < 0){
+			encoderPositionCount = 0;
+			incrementingEncoder = true;
+		}
+		
+	}
 }
