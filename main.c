@@ -15,7 +15,7 @@ typedef enum {false, true} bool;
 
 /**
 *	Wiring Notes:
-*	1. PA0 -> PA4 (DAC -> ADC)
+*	1. PA4 -> PA1 (DAC -> ADC)
 *	2. PE7 -> PE6 (Output of encoder signal -> interrupt pin).
 */
 
@@ -234,7 +234,6 @@ void configure_leds()
 
 		GPIOE->MODER |= 0x55554000; // Set mode of each pin in port E
 		
-		
 	
 		GPIOE->OTYPER &= ~(0x00000100); // Set output type for each pin required in Port E
 		GPIOE->PUPDR &= ~(0x00000000); // Set Pull up/Pull down resistor configuration for Port E
@@ -273,7 +272,8 @@ void configure_adc()
 	
 	// 6. Set the multiplexing options. (1 channel, listening to channel 1 (IN1)).
 	//ADC1->SQR1 &= ~(0x7CF) // Reset the channel length (L) and first address.
-	ADC1->SQR1 |= 0x40;
+	ADC1->SQR1 |= 0x2 << 6;
+	ADC1->SQR1 |= 0x1;
 	
 	// 7. Set the sample time of the ADC:
 	ADC1->SMPR1 &= ~(0x38);  // mb rm
